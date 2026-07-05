@@ -1,23 +1,18 @@
 @echo off
-@chcp 65001 >nul
-title Poe 2 — Vorana's Saga Rumor Tracker - Nya~ (=\^·ω·\^=)
+:: Poe 2 Vorana's Saga Rumor Tracker - launcher for Windows
+:: Fix working dir and use pure ASCII
+
+setlocal
+
+:: Resolve the directory where THIS batch file lives (handles shortcuts/favorites)
+set "_SCRIPT_DIR=%~dp0"
+cd /d "%_SCRIPT_DIR%"
 
 echo.
-echo ================================
-echo   Poe2 Rumor Tracker Launcher  
-echo   by Neko-chan (=\^·ω·\^=) 
-echo ================================
+echo ====================================
+echo    Poe 2 Rumor Tracker Launcher    
+echo ====================================
 echo.
-
-:: Check if running in virtual environment
-if defined VIRTUAL_ENV (
-    echo [OK] Virtualenv detected: %VIRTUAL_ENV%
-) else (
-    echo [!] Not in a virtualenv. Create one first:
-    echo     python -m venv venv
-    echo     Call the appropriate activate script, then run this again.
-    echo.
-)
 
 :: Check Python exists
 where python >nul 2>nul
@@ -27,7 +22,7 @@ if %ERRORLEVEL% NEQ 0 (
     exit /b 1
 )
 
-echo [OK] Python: 
+echo [OK] Python:
 python --version
 echo.
 
@@ -44,12 +39,12 @@ if %ERRORLEVEL% NEQ 0 (
         exit /b 1
     )
     echo.
-     [OK] Dependencies installed! =)
+    echo [OK] Dependencies installed!
 )
 
 echo [i] Starting Poe2 Rumor Tracker...
 python main.py %*
 
 echo.
-echo Closing in 5 seconds. Press Ctrl+C to stop immediately.
-timeout /t 5 >nul
+echo Press Enter to close...
+pause >nul
