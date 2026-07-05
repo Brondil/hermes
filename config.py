@@ -62,6 +62,7 @@ class OCRSettings:
 class ClickerSettings:
     MAX_CLICKS = 1       # Максимум кликов по Vorana's Saga на румор
     CLICK_DELAY = 0.25   # Задержка между кликами (секунды)
+    ITEM_CLICK_X = int(1920 / 3)    # default X position for auto-click target
 
 # ============================================================
 # Оверлей — прозрачный счётчик "Слухи: X" поверх игры
