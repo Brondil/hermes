@@ -26,9 +26,12 @@ import config
 
 
 # Setup logging
+_g = getattr(config, 'General', None) or {}
+_logging_file = _g.get('LOG_FILE', 'rumor_counter.log') if isinstance(_g, dict) else (getattr(_g, 'LOG_FILE', 'rumor_counter.log') if _g else 'rumor_counter.log')
+_logging_level = (_g.get('DEBUG_MODE', False) if isinstance(_g, dict) else (getattr(_g, 'DEBUG_MODE', False) if _g else False))
 logging.basicConfig(
-    filename=config.GeneralSettings.LOG_FILE,
-    level=logging.DEBUG if config.GeneralSettings.DEBUG_MODE else logging.INFO,
+    filename=_logging_file,
+    level=logging.DEBUG if _logging_level else logging.INFO,
     format='%(asctime)s [%(levelname)s] %(message)s'
 )
 logger = logging.getLogger("RumorTracker")
