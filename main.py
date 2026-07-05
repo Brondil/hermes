@@ -64,9 +64,13 @@ def parse_args():
         "--hover-region", nargs=4, type=int, metavar=("X", "Y", "W", "H"),
         help="Координаты зоны ховера для режима hover (x y w h)"
     )
+    # Fallback defaults to use in help text before auto-detect runs.
+    _fbx = getattr(config, '_FALLBACK_RUMORS_REGION', None) or {}
+    _fb_default_x = (_fbx.get('x') if 'x' in _fbx else 1500) or 1500
+
     parser.add_argument(
         "--region-x", type=int, default=None,
-        help=f"X-координата региона руморов (default: {getattr(config, "_FALLBACK_RUMORS_REGION", {"x": 1500, "y": 54})['x'] or 1500})"
+        help=f"X-координата региона руморов (default: {_fb_default_x})"
     )
     parser.add_argument(
         "--region-y", type=int, default=None,
@@ -226,7 +230,8 @@ def main():
     overlay_x, overlay_y = config.get_overlay_position()
     app = QApplication(sys.argv)
     overlay_mgr = OverlayManager()
-    overlay_widget = OverlayWidget(pos_x=overlay_x, pos_y=overlay_y)
+    overlay_widget = OverlayWidget()
+    overlay_widget.move(overlay_x, overlay_y)
     overlay_mgr.set_widget(overlay_widget)
     
     # Инициализация трекера
