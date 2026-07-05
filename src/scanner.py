@@ -11,8 +11,9 @@ from src.ocr import OCRManager
 from src.fuzzy import FuzzyHashSet
 from src.cleaner import TextCleaner
 
+
 class ScannerWorker(QThread):
-    \"\"\"The background worker that handles the heavy scanning loop without freezing the UI.\"\"\"
+    """The background worker that handles the heavy scanning loop without freezing the UI."""
     rumor_found = pyqtSignal(str)  # Emits when a NEW unique rumor is detected
     count_changed = pyqtSignal(int) # Emits current total count
     error_occurred = pyqtSignal(str)
@@ -32,7 +33,7 @@ class ScannerWorker(QThread):
         self.rumor_set = FuzzyHashSet(threshold=0.85)
 
     def set_roi(self, screen_geometry: QRect):
-        \"\"\"Converts raw pixel coordinates to percentage-based ROI for resolution independence.\"\"\"
+        """Converts raw pixel coordinates to percentage-based ROI for resolution independence."""
         # We derive normalization based on current desktop size to keep it stable if player changes res later
         sw, sh = pyautogui.size()
         if sw <= 0 or sh <= 0:
@@ -48,7 +49,7 @@ class ScannerWorker(QThread):
         print(f"Scanner: ROI normalized (0-1): {self._roi_norm}")
 
     def _get_pixel_rect(self, current_monitor_w: int, current_monitor_h: int) -> QRect:
-        \"\"\"Converts normalized ROI back to actual pixels for the current monitor size.\"\"\"
+        """Converts normalized ROI back to actual pixels for the current monitor size."""
         x = int(self._roi_norm[0] * current_monitor_w)
         y = int(self._roi_norm[1] * current_monitor_h)
         w = int(self._roi_norm[2] * current_monitor_w)
@@ -61,8 +62,8 @@ class ScannerWorker(QThread):
             self.wait() 
 
     def run(self):
-        \"\"\"Main loop executed in background thread.\"\"\"
-        print(\"Scanner Thread: Starting... nya! (=^･ωﾟ･=)\")
+        """Main loop executed in background thread."""
+        print("Scanner Thread: Starting...")
         self.is_running = True
         self.rumor_set.reset()
         last_hash = None
@@ -118,10 +119,10 @@ class ScannerWorker(QThread):
             print(f"Scanner Thread Error: {e}")
         finally:
             self.is_running = False
-            print(\"Scanner Thread: Stopped. (=^‥^=)\")
+            print("Scanner Thread: Stopped.")
 
     def _calculate_image_hash(self, img):
-        \"\"\"Quick perceptual hash to detect if anything on screen actually changed.\"\"\"
+        """Quick perceptual hash to detect if anything on screen actually changed."""
         gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
         resized = cv2.resize(gray, (16, 12), interpolation=cv2.INTER_AREA)
         _, thresh = cv2.threshold(resized, 128, 255, cv2.THRESH_BINARY | cv2.THRESH_OTSU)

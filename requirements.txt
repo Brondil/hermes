@@ -1,10 +1,7 @@
-import sys
-
-requirements = """PyQt6
-opencv-python
+PyQt6>=6.4
+opencv-python>=4.8
 numpy
-mss
-pyautogui"""
-with open("/home/kremator/Documents/poe2_rumor_counter/requirements.txt", "w") as f:
-    f.write(requirements)
-print("Requirements written.")
+mss>=9.0
+pyautogui>=0.9
+winsdk>=1.0; sys_platform == "win32"
+Pillow>=10.0
