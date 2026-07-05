@@ -48,27 +48,11 @@ def parse_args():
     )
     parser.add_argument(
         "--region-x", type=int, default=None,
-        help=f"X-координата региона руморов (default: {config.FALLBACK_RUMORS_REGION['x']})"
+        help=f"X-координата региона руморов (default: {_FALLBACK_RUMORS_REGION['x'] or 1500})"
     )
     parser.add_argument(
         "--region-y", type=int, default=None,
-        help=f"Y-координата региона руморов (default: {config.FALLBACK_RUMORS_REGION['y']})"
-    )
-    parser.add_argument(
-        "--overlay-x", type=int, default=None,
-        help=f"X позиция оверлея (default: {config.OverlaySettings.POSITION_X})"
-    )
-    parser.add_argument(
-        "--overlay-y", type=int, default=None,
-        help=f"Y позиция оверлея (default: {config.OverlaySettings.POSITION_Y})"
-    )
-    parser.add_argument(
-        "--clicks", type=int, default=None,
-        help=f"Количество кликов по Vorana's Saga (default: {config.ClickerSettings.MAX_CLICKS})"
-    )
-    parser.add_argument(
-        "--delay", type=float, default=None,
-        help=f"Задержка между кликами в секундах (default: {config.ClickerSettings.CLICK_DELAY})"
+        help=f"Y-координата региона руморов (default: {_FALLBACK_RUMORS_REGION.get('y', 54) or 54})"
     )
     parser.add_argument(
         "--once", action="store_true",
@@ -83,17 +67,9 @@ def parse_args():
     
     # Применить настройки из аргументов (перезаписывают fallback)
     if args.region_x is not None:
-        config.FALLBACK_RUMORS_REGION["x"] = args.region_x
+        _FALLBACK_RUMORS_REGION["x"] = args.region_x
     if args.region_y is not None:
-        config.FALLBACK_RUMORS_REGION["y"] = args.region_y
-    if args.overlay_x is not None:
-        config.OverlaySettings.POSITION_X = args.overlay_x
-    if args.overlay_y is not None:
-        config.OverlaySettings.POSITION_Y = args.overlay_y
-    if args.clicks is not None:
-        config.ClickerSettings.MAX_CLICKS = args.clicks
-    if args.delay is not None:
-        config.ClickerSettings.CLICK_DELAY = args.delay
+        _FALLBACK_RUMORS_REGION["y"] = args.region_y
     if args.threshold is not None:
         config.OCRSettings.MATCH_THRESHOLD = args.threshold
     
@@ -127,15 +103,9 @@ def scan_screen_markers():
     
     try:
         detector = AutoDetector()
-        screen_img = detector.take_screenshot() if hasattr(detector, 'take_screenshot') else None
         
-        # Если нет скриншота и pyautogui недоступен → используем pure fallback.
-        if screen_img is None:
-            print("   [i] Скриншот недоступен — используем config fallback ROI.")
-            _apply_config_fallback()
-            return
-        
-        layout = detector.detect_screen_layout(screen_img)
+        # detect_screen_layout() takes screenshot internally when screen_img=None
+        layout = detector.detect_screen_layout(None)
         
         # Применяем найденные координаты.
         found_any = False
@@ -160,8 +130,7 @@ def scan_screen_markers():
             print(f"   [√] OVERLAY_POSITION auto-detected: ({overlay_p[0]}, {overlay_p[1]})")
             found_any = True
         else:
-            pos = (int(config.Overlay.POSITION_X * screen_img.shape[1]) if hasattr(config, 'Overlay') and hasattr(config.Overlay, 'POSITION_X') else 100)
-            config.ACTIVE_OVERLAY_POSITION = (pos, 100)
+            config.ACTIVE_OVERLAY_POSITION = (config.Overlay.COUNTER_X, config.Overlay.COUNTER_Y)
         
         if trigger_r:
             config.ACTIVE_TRIGGER_REGION = trigger_r

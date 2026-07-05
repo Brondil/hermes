@@ -17,14 +17,35 @@ import logging
 import os
 import sys
 
-sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
-try:
-    import config
-except ImportError:
-    # fallback when this module is used standalone without project root in path
-    pass
-
 logger = logging.getLogger("RumorTracker")
+
+
+# Safe lazy access to config module (avoid circular imports).
+def _get_config():
+    """Lazily import and return the config module."""
+    try:
+        import sys as _sys
+        import os as _os
+        _root = _os.path.dirname(_os.path.dirname(_os.path.abspath(__file__)))
+        if _root not in _sys.path:
+            _sys.path.insert(0, _root)
+        import config  # noqa: F401
+        return config
+    except ImportError:
+        return None
+
+
+# ============================================================
+# Fallback — percentages from config.ROI used when OCR is unavailable.
+# ============================================================
+def _fallback_region(screen_w: int, screen_h: int) -> Dict:
+    """Return a fallback RUMORS_REGION based on hard-coded defaults."""
+    return {
+        "x": int(screen_w * 0.78),   # X1 = 0.78
+        "y": int(screen_h * 0.05),   # Y1 = 0.05
+        "w": int(screen_w * (0.97 - 0.78)),  # width = 19% of screen
+        "h": int(screen_h * (0.35 - 0.05)),  # height = 30% of screen
+    }
 
 
 class AutoDetector:
@@ -72,15 +93,10 @@ class AutoDetector:
         region = screen_img[0:h, x_start:w]  # правая часть
         
         if self.ocr is None:
-            # OCR недоступен — fallback на ROI config
-            roi = config.get_rumors_region()
-            logger.info(f"OCR недоступен — используем FALLBACK_RUMORS_REGION")
-            return {
-                "x": int(w * roi['X1']),
-                "y": int(h * roi['Y1']),
-                "w": int(w * (roi['X2'] - roi['X1'])),
-                "h": int(h * (roi['Y2'] - roi['Y1']))
-            }
+            # OCR недоступен — fallback на ROI из config как проценты от screen size
+            logger.warning("OCR недоступен или не инициализирован — fallback fallback fallback on config ROI")
+            return _fallback_region(w, h)
+        
         
         # OCR на региона с текстом PoE2. Получим bounding boxes всех слов.
         ocr_result = self.ocr.ocr(region) # [N, 1, 4] x M
@@ -120,13 +136,7 @@ class AutoDetector:
         
         # Too few points → fallback
         logger.debug("Too few OCR boxes to form a table → fallback config.")
-        roi = config.get_rumors_region()
-        return {
-            "x": int(w * roi['X1']),
-            "y": int(h * roi['Y1']),
-            "w": int(w * (roi['X2'] - roi['X1'])),
-            "h": int(h * (roi['Y2'] - roi['Y1']))
-        }
+        return _fallback_region(w, h)
     
     def find_vorana_saga(self, screen_img=None) -> Optional[Tuple[int, int]]:
         """
@@ -180,27 +190,33 @@ class AutoDetector:
             return gold_items[0]  # First match → Vorana
         
         # Fallback on template matching if config has a template.
-        if hasattr(config, 'VORANA_TEMPLATE') and config.VORANA_TEMPLATE:
-            template_path = config.VORANA_TEMPLATE
+        cfg = _get_config()
+        if cfg is not None and hasattr(cfg, 'VORANA_TEMPLATE') and getattr(cfg, 'VORANA_TEMPLATE', None):
+            template_path = cfg.VORANA_TEMPLATE
             if os.path.exists(template_path):
                 template = cv2.imread(template_path)
                 if template is not None:
                     match_result = cv2.matchTemplate(
                         screen_img, template, cv2.TM_CCOEFF_NORMED
                     )
-                    threshold = config.OCRSettings.FUZZY_THRESHOLD  
+                    threshold = getattr(getattr(cfg, 'OCRSettings', None), 'FUZZY_THRESHOLD', 0.85)
                     loc = np.where(match_result >= threshold)
                     
                     if len(loc[0]) > 0:
                         center_x = int(loc[1][0] + template.shape[1]//2)
                         center_y = int(loc[0][0] + template.shape[0]//2)
-                        logger.info(f"Vorana's Saga найден по template: ({center_x}, {center_y})")
+                        logger.info(f"Vorana's Saga найден по template matching: ({center_x}, {center_y})")
                         return (center_x, center_y)
         
         # Ultimate fallback — use config ClickerSettings.
-        cx = config.ClickerSettings.ITEM_CLICK_X
-        cy = config.ClickerSettings.ITEM_CLICK_Y
-        logger.info(f"Не удалось auto-детектировать Vorana → использую FALLBACK {cx}, {cy}")
+        cfg = _get_config()
+        if cfg is not None and hasattr(cfg, 'ClickerSettings'):
+            cs = cfg.ClickerSettings
+            cx = getattr(cs, 'ITEM_CLICK_X', w // 3)
+            cy = getattr(cs, 'ITEM_CLICK_Y', h // 3)
+        else:
+            cx, cy = w // 3, h // 3
+        logger.info(f"Не удалось auto-детектировать Vorana → использую FALLBACK ({cx}, {cy})")
         return (cx, cy)
     
     def detect_screen_layout(self, screen_img=None) -> Dict:
@@ -288,18 +304,13 @@ class AutoDetector:
                 result["vorana_saga"] = gold_items[0]
                 logger.info(f"Vorana's Saga auto-detected via golden color: {gold_items[0]}")
         
-        # Fallback for config access.
-        if 'config' not in globals():
-            try:
-                import config as _cfg  # type: ignore
-                config = _cfg  # type: ignore
-            except ImportError:
-                pass
-        
-        if result["vorana_saga"] is None and 'config' in globals() and hasattr(config, 'ClickerSettings'):
-            cx = getattr(config.ClickerSettings, 'ITEM_CLICK_X', w // 3)
-            cy = getattr(config.ClickerSettings, 'ITEM_CLICK_Y', h // 3)
-            result["vorana_saga"] = (cx, cy)
-            logger.info(f"Vorana's Saga fallback: ({cx}, {cy})")
+        # Fallback for config access in detect_screen_layout.
+        cfg2 = _get_config()
+        if result["vorana_saga"] is None and cfg2 is not None and hasattr(cfg2, 'ClickerSettings'):
+            cs2 = cfg2.ClickerSettings
+            cx2 = getattr(cs2, 'ITEM_CLICK_X', w // 3)
+            cy2 = getattr(cs2, 'ITEM_CLICK_Y', h // 3)
+            result["vorana_saga"] = (cx2, cy2)
+            logger.info(f"Vorana's Saga fallback in detect_screen_layout: ({cx2}, {cy2})")
         
         return result
