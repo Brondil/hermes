@@ -265,6 +265,10 @@ class OverlayManager:
         if self._app:
             self._app.processEvents()
 
+    def set_widget(self, widget: QWidget):
+        """Вручную задать виджет для менеджера оверлея."""
+        self._widget = widget
+
 
 # =========================================================================
 # Module-level convenience — import and use directly without manager pattern
