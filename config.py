@@ -105,10 +105,11 @@ _FALLBACK_RUMORS_REGION = {
     "h": int(1080 * 0.30),   # 30% of height (Y2-Y1=0.35-0.05)
 }
 
-ACTIVE_RUMORS_REGION = None      # {x, y, w, h} — auto-detected table of rumors
-ACTIVE_OVERLAY_POSITION = None   # (x, y) overlay counter position
-ACTIVE_TRIGGER_REGION = None     # (x, y, w, h) hover zone for F9 trigger
-ACTIVE_VORANA_POSITION = None    # (x, y) auto-detected Vorana's Saga click target
+ACTIVE_RUMORS_REGION = None         # {x, y, w, h} — auto-detected table of rumors
+ACTIVE_OVERLAY_POSITION = None      # (x, y) overlay counter position
+ACTIVE_TRIGGER_REGION = None        # (x, y, w, h) hover zone for F9 trigger
+ACTIVE_VORANA_POSITION = None       # (x, y) auto-detected Vorana's Saga click target
+VORANA_TEMPLATE = None              # path to Vorana's Saga button template image (optional)
 
 
 def get_rumors_region() -> dict:
