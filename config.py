@@ -43,6 +43,9 @@ class Scanner:
 # OCR + Fuzzy Matching (ТЗ п.5: критические суперфичи)
 # ============================================================
 class OCRSettings:
+    # Template matching threshold for opencv matchTemplate (0-1)
+    MATCH_THRESHOLD = 0.85
+    
     # Fuzzy matching threshold: при каком % совпадения строка считается дубликатом
     # ТЗ: 90% совпадения = дубликат => не увеличивать счётчик
     FUZZY_THRESHOLD = 0.90
