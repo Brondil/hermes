@@ -79,3 +79,47 @@ class Hotkeys:
 class General:
     DEBUG_MODE = True
     LOG_FILE = "rumor_counter.log"
+
+
+# ============================================================
+# Runtime auto-detected values (set by scan_screen_markers / auto_detector)
+# These override fallback values once the program runs.
+# ============================================================
+
+# Fallback for get_rumors_region() so main.py doesn't crash before auto-detect runs.
+_FALLBACK_RUMORS_REGION = {
+    "x": None,
+    "y": None,
+    "w": int(1920 * 0.19),   # 19% of width (X2-X1=0.97-0.78)
+    "h": int(1080 * 0.30),   # 30% of height (Y2-Y1=0.35-0.05)
+}
+
+ACTIVE_RUMORS_REGION = None      # {x, y, w, h} — auto-detected table of rumors
+ACTIVE_OVERLAY_POSITION = None   # (x, y) overlay counter position
+ACTIVE_TRIGGER_REGION = None     # (x, y, w, h) hover zone for F9 trigger
+ACTIVE_VORANA_POSITION = None    # (x, y) auto-detected Vorana's Saga click target
+
+
+def get_rumors_region() -> dict:
+    """Return active or fallback RUMORS_REGION."""
+    if ACTIVE_RUMORS_REGION and all(v is not None for v in [ACTIVE_RUMORS_REGION.get('x'), ACTIVE_RUMORS_REGION.get('y')]):
+        return ACTIVE_RUMORS_REGION
+    # Build region from ROI percentages.
+    roi = getattr(__import__('config', fromlist=['ROI']), 'ROI', None)
+    
+    # Default assumed resolution (will be overridden by auto-detected screen size in production).
+    w, h = 1920, 1080
+    return {
+        "x": int(w * roi.X1) if roi else _FALLBACK_RUMORS_REGION['x'] or 1500,
+        "y": int(h * roi.Y1) if roi else _FALLBACK_RUMORS_REGION['y'] or 54,
+        "w": int(w * (roi.X2 - roi.X1)) if roi else _FALLBACK_RUMORS_REGION['w'] or 365,
+        "h": int(h * (roi.Y2 - roi.Y1)) if roi else _FALLBACK_RUMORS_REGION['h'] or 324,
+    }
+
+
+def get_overlay_position() -> tuple:
+    """Return active or fallback OVERLAY_POSITION."""
+    if ACTIVE_OVERLAY_POSITION:
+        return ACTIVE_OVERLAY_POSITION
+    return (10, 10)  # default top-left corner of overlay window
+

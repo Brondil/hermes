@@ -18,10 +18,13 @@ import argparse
 # Добавляем директорию проекта в путь для импорта модулей
 sys.path.insert(0, os.path.dirname(__file__))
 
+from utils.screen_capture import ScreenCapture
+from utils.ocr import RumorReader
+from utils.auto_clicker import AutoClicker
+from utils.overlay import OverlayManager, OverlayWidget
+from utils.auto_detector import AutoDetector
 from utils.tracker import RumorTracker
 from utils.hotkey import HoverListener
-from utils.overlay import OverlayManager, OverlayWidget
-from utils.marker_detector import MarkerDetector
 # QApplication для оверлея
 try:
     from PySide6.QtWidgets import QApplication
@@ -110,50 +113,100 @@ def print_banner():
 
 
 def scan_screen_markers():
-    """Сканировать экран и найти цветные маркеры, ня~"""
-    print("[🔍] Сканирование экрана на наличие цветных прямоугольников-маркеров...")
-    print("   🔴 Красный  -> RUMORS_REGION")
-    print("   🟡 Жёлтый  -> OVERLAY_POSITION")
-    print("   🔵 Синий   -> TRIGGER_REGION")
+    """
+    Автоматический поиск UI элементов PoE2 на экране.
+    
+    Вместо ручного рисования зон программа сама:
+    1. OCR → ищет область с текстом руморов (правый верх)
+    2. Цветовой анализ золотых предметов → находит Vorana's Saga
+    3. Fallback на config ROI если ничего не найдено
+    
+    Ня~ (=^･ω･^)
+    """
+    print("[🔍] Автоматический поиск элементов PoE2 UI...")
     
     try:
-        detector = MarkerDetector()
-        screen_img = detector.take_screenshot()
+        detector = AutoDetector()
+        screen_img = detector.take_screenshot() if hasattr(detector, 'take_screenshot') else None
         
-        red_rects = detector.find_color_region(screen_img, detector.RED)
-        yellow_rects = detector.find_color_region(screen_img, detector.YELLOW)
-        blue_rects = detector.find_color_region(screen_img, detector.BLUE)
+        # Если нет скриншота и pyautogui недоступен → используем pure fallback.
+        if screen_img is None:
+            print("   [i] Скриншот недоступен — используем config fallback ROI.")
+            _apply_config_fallback()
+            return
         
+        layout = detector.detect_screen_layout(screen_img)
+        
+        # Применяем найденные координаты.
         found_any = False
         
-        if red_rects:
-            best = detector.best_fit_rect(red_rects)
+        rumors_r = layout.get('rumors_region')
+        overlay_p = layout.get('overlay_position')
+        trigger_r = layout.get('trigger_region')
+        vorana_s = layout.get('vorana_saga')
+        
+        if rumors_r:
             config.ACTIVE_RUMORS_REGION = {
-                "x": best["x"], "y": best["y"],
-                "w": best["width"], "h": best["height"]
+                "x": rumors_r['x'], "y": rumors_r['y'],
+                "w": rumors_r['w'], "h": rumors_r['h']
             }
-            print(f"   [✓] 🔴 RUMORS_REGION найден: ({best['x']}, {best['y']}) {best['width']}x{best['height']}")
+            print(f"   [√] RUMORS_REGION auto-detected: ({rumors_r['x']}, {rumors_r['y']}) {rumors_r['w']}x{rumors_r['h']}")
+            found_any = True
+        else:
+            print("   [!] Таблица руморов не найдена OCR → fallback config.")
+        
+        if overlay_p:
+            config.ACTIVE_OVERLAY_POSITION = overlay_p
+            print(f"   [√] OVERLAY_POSITION auto-detected: ({overlay_p[0]}, {overlay_p[1]})")
+            found_any = True
+        else:
+            pos = (int(config.Overlay.POSITION_X * screen_img.shape[1]) if hasattr(config, 'Overlay') and hasattr(config.Overlay, 'POSITION_X') else 100)
+            config.ACTIVE_OVERLAY_POSITION = (pos, 100)
+        
+        if trigger_r:
+            config.ACTIVE_TRIGGER_REGION = trigger_r
+            print(f"   [√] TRIGGER_REGION auto-detected: ({trigger_r[0]}, {trigger_r[1]}) {trigger_r[2]}x{trigger_r[3]}")
             found_any = True
         
-        if yellow_rects:
-            centroid = detector.centroid_of_blobs(yellow_rects)
-            config.ACTIVE_OVERLAY_POSITION = (centroid[0], centroid[1])
-            print(f"   [✓] 🟡 OVERLAY_POSITION найден: ({centroid[0]}, {centroid[1]})")
+        if vorana_s:
+            config.ACTIVE_VORANA_POSITION = vorana_s
+            print(f"   [√] Vorana's Saga auto-detected: ({vorana_s[0]}, {vorana_s[1]})")
             found_any = True
         
-        if blue_rects:
-            best = detector.best_fit_rect(blue_rects)
-            config.ACTIVE_TRIGGER_REGION = (best["x"], best["y"], best["width"], best["height"])
-            print(f"   [✓] 🔵 TRIGGER_REGION найден: ({best['x']}, {best['y']}) {best['width']}x{best['height']}")
-            found_any = True
-        
-        if not found_any:
-            print("   [!] Маркеры не найдены — используются fallback координаты из config.py")
-            detector.save_debug_screenshot(screen_img, red_rects, yellow_rects, blue_rects)
+        if not found_any and hasattr(config, 'ROI'):
+            _apply_config_fallback()
         
     except Exception as e:
-        print(f"   [!] Ошибка сканирования экрана: {e}")
-        print("   [!] Используются fallback координаты")
+        print(f"   [!] Ошибка авто-поиска UI элементов: {e}")
+        print("   [!] Используются fallback координаты из config.py")
+        _apply_config_fallback()
+
+
+def _apply_config_fallback():
+    """Применить fallback ROI из config при отсутствии auto-detected значений."""
+    if hasattr(config, 'ROI'):
+        roi = config.ROI
+        w_full = 1920  # assumed default screen width
+        h_full = 1080  # assumed default screen height
+        
+        # Apply percentages to absolute coordinates.
+        config.ACTIVE_RUMORS_REGION = {
+            "x": int(w_full * roi.X1),
+            "y": int(h_full * roi.Y1),
+            "w": int(w_full * (roi.X2 - roi.X1)),
+            "h": int(h_full * (roi.Y2 - roi.Y1))
+        }
+        
+        config.ACTIVE_OVERLAY_POSITION = (
+            w_full // 2,
+            h_full // 4
+        )
+        
+        trigger_x = max(0, config.ACTIVE_RUMORS_REGION['x'] - int(config.ACTIVE_RUMORS_REGION['w'] * 0.6))
+        trigger_y = config.ACTIVE_RUMORS_REGION['y']
+        trigger_w = int(config.ACTIVE_RUMORS_REGION['w'] * 0.6)
+        trigger_h = config.ACTIVE_RUMORS_REGION['h']
+        config.ACTIVE_TRIGGER_REGION = (trigger_x, trigger_y, trigger_w, trigger_h)
 
 
 def get_effective_trigger_region():
