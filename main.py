@@ -31,6 +31,24 @@ try:
 except ImportError:
     from PyQt6.QtWidgets import QApplication
 import config
+from config import _FALLBACK_RUMORS_REGION
+
+
+def _get_fallback_x():
+    """Safely get fallback X from config."""
+    try:
+        val = __import__('config', fromlist=['_FALLBACK_RUMORS_REGION'])._FALLBACK_RUMORS_REGION.get('x')
+        return val if val is not None else 1500
+    except:
+        return 1500
+
+def _get_fallback_y():
+    """Safely get fallback Y from config."""
+    try:
+        val = __import__('config', fromlist=['_FALLBACK_RUMORS_REGION'])._FALLBACK_RUMORS_REGION.get('y')
+        return val if val is not None else 54
+    except:
+        return 54
 
 
 def parse_args():
@@ -48,7 +66,7 @@ def parse_args():
     )
     parser.add_argument(
         "--region-x", type=int, default=None,
-        help=f"X-координата региона руморов (default: {_FALLBACK_RUMORS_REGION['x'] or 1500})"
+        help=f"X-координата региона руморов (default: {getattr(config, "_FALLBACK_RUMORS_REGION", {"x": 1500, "y": 54})['x'] or 1500})"
     )
     parser.add_argument(
         "--region-y", type=int, default=None,
@@ -67,9 +85,9 @@ def parse_args():
     
     # Применить настройки из аргументов (перезаписывают fallback)
     if args.region_x is not None:
-        _FALLBACK_RUMORS_REGION["x"] = args.region_x
+        getattr(config, "_FALLBACK_RUMORS_REGION", {"x": 1500, "y": 54})["x"] = args.region_x
     if args.region_y is not None:
-        _FALLBACK_RUMORS_REGION["y"] = args.region_y
+        getattr(config, "_FALLBACK_RUMORS_REGION", {"x": 1500, "y": 54})["y"] = args.region_y
     if args.threshold is not None:
         config.OCRSettings.MATCH_THRESHOLD = args.threshold
     
@@ -104,8 +122,8 @@ def scan_screen_markers():
     try:
         detector = AutoDetector()
         
-        # detect_screen_layout() takes screenshot internally when screen_img=None
-        layout = detector.detect_screen_layout(None)
+        # detect_screen_layout() handles screenshot internally when screen_img=None
+        layout = detector.detect_screen_layout(screen_img=None)
         
         # Применяем найденные координаты.
         found_any = False
