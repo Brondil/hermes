@@ -1,0 +1,8 @@
+# Poe2 Rumor Tracker - Requirements
+opencv-python>=4.8.0
+pyautogui>=0.9.54
+pytesseract>=0.3.10
+numpy>=1.24.0
+PyQt6>=6.6.0
+pywin32>=306
+pynput>=1.7.6
